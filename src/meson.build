@@ -288,6 +288,7 @@ subdir('test')
 subdir('vbox')
 subdir('vmware')
 subdir('vz')
+subdir('vf')
 
 
 driver_sources = files(
@@ -667,6 +668,12 @@ foreach daemon : virt_daemons
    # libvirtd_prog is needed by the test suite
   if daemon['name'] == 'libvirtd'
     libvirtd_prog = bin
+
+    # Apply virtualization entitlement to use Virtualization.Framework
+
+    if conf.has('WITH_VF')
+      run_command('codesign', '--entitlements', meson.project_source_root() / 'src/vf/entitlements.plist', '-f', '-s', '-', libvirtd_prog.full_path())
+    endif
   endif
 endforeach
 

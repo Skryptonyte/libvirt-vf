@@ -68,6 +68,7 @@ for root, dirs, files in os.walk(os.path.join(srcdir, "src")):
     for file in files:
         if ((file.endswith("driver.c") and
              not file.endswith("vbox_driver.c")) or
+                file.endswith("driver.m") or
                 file.endswith("common.c") or
                 file.endswith("tmpl.c") or
                 file.endswith("monitor.c") or
@@ -297,6 +298,8 @@ for src in srcs:
                     implmatch = re.search(r".*/node_device_(\w+)\.c", impl)
                     if implmatch is None:
                         implmatch = re.search(r".*/(\w+?)_((\w+)_)?(\w+)\.c", impl)
+                    if implmatch is None:
+                        implmatch = re.search(r".*/(\w+?)_((\w+)_)?(\w+)\.m", impl)
                     if implmatch is None:
                         raise Exception("Unexpected impl format '%s'" % impl)
                     impl = implmatch.group(1)

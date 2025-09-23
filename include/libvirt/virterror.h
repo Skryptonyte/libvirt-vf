@@ -142,6 +142,7 @@ typedef enum {
     VIR_FROM_BPF = 71,          /* Error from BPF code (Since: 5.10.0) */
     VIR_FROM_CH = 72,           /* Error from Cloud-Hypervisor driver (Since: 7.5.0) */
 
+    VIR_FROM_VF = 73,           /* Error from Virtualization.Framework driver (Since: 11.8.0) */
 # ifdef VIR_ENUM_SENTINELS
     VIR_ERR_DOMAIN_LAST /* (Since: 0.9.13) */
 # endif

@@ -1743,6 +1743,13 @@ elif get_option('driver_vz').enabled()
   error('Parallels Virtualization SDK is needed to build the Virtuozzo driver.')
 endif
 
+if host_machine.system() == 'darwin' and not get_option('driver_vf').disabled()
+  conf.set('WITH_VF', 1)
+
+  add_languages('objc')
+  objc = meson.get_compiler('objc')
+endif
+
 if not get_option('secdriver_apparmor').disabled() and apparmor_dep.found()
   conf.set('WITH_SECDRIVER_APPARMOR', 1)
 elif get_option('secdriver_apparmor').enabled()
@@ -2207,6 +2214,7 @@ driver_summary = {
   'Remote': conf.has('WITH_REMOTE'),
   'Test': conf.has('WITH_TEST'),
   'VBox': conf.has('WITH_VBOX'),
+  'Virtualization.Framework': conf.has('WITH_VF'),
   'VMware': conf.has('WITH_VMWARE'),
   'vz': conf.has('WITH_VZ'),
 }
