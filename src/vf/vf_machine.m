@@ -340,8 +340,118 @@ static int vfConfigureNetwork(virDomainDef *def,
 }
 
 
+static VZStorageDeviceAttachment *
+vfBuildDiskNBDAttachment(virDomainDiskDef *disk)
+{
+    virStorageSource *src = disk->src;
+    virStorageNetHostDef *host;
+    NSString *nbd_url_string;
+    g_autofree char *url_string;
+    NSURL *nbd_url;
+    VZNetworkBlockDeviceStorageDeviceAttachment *attach;
+
+    if (src->protocol != VIR_STORAGE_NET_PROTOCOL_NBD) {
+        virReportEnumRangeError(virStorageNetProtocol, src->protocol);
+        return nil;
+    }
+
+    if (src->nhosts != 1) {
+        virReportError(VIR_ERR_INTERNAL_ERROR,
+                    _("nbd protocol accepts only one host"));
+        return nil;
+    }
+
+    host = &src->hosts[0];
+
+    if (src->path)
+        url_string = g_strdup_printf("nbd://%s:%d/%s",
+                                     host->name,
+                                     host->port,
+                                     src->path);
+    else
+        url_string = g_strdup_printf("nbd://%s:%d", host->name, host->port);
+
+    nbd_url_string = [NSString stringWithUTF8String:url_string];
+    nbd_url = [[NSURL alloc] initWithString:nbd_url_string];
+
+    attach = [[VZNetworkBlockDeviceStorageDeviceAttachment alloc]
+                initWithURL:nbd_url
+                timeout:5.0
+                forcedReadOnly:src->readonly
+                synchronizationMode:VZDiskSynchronizationModeFull
+                error:nil];
+
+    if (!attach) {
+        virReportError(VIR_ERR_INTERNAL_ERROR,
+                    _("failed to create NBD attachment for disk"));
+        return nil;
+    }
+
+    return attach;
+}
+
+
+static VZStorageDeviceAttachment *
+vfBuildDiskBlockAttachment(virDomainDiskDef *disk,
+                            BOOL privileged)
+{
+    NSString *diskPath = [NSString stringWithUTF8String:disk->src->path];
+    NSFileHandle *filehandle = [NSFileHandle fileHandleForUpdatingAtPath:diskPath];
+    VZDiskBlockDeviceStorageDeviceAttachment *attach;
+
+    if (!privileged) {
+        virReportError(VIR_ERR_INTERNAL_ERROR,
+                        _("Disk block type can only be used in system mode"));
+        return nil;
+    }
+
+    if (!filehandle) {
+        virReportError(VIR_ERR_INTERNAL_ERROR,
+                        _("Unable to create file handle for path: %1$s"), disk->src->path);
+        return nil;
+    }
+
+    attach = [[VZDiskBlockDeviceStorageDeviceAttachment alloc]
+                initWithFileHandle:filehandle
+                readOnly:disk->src->readonly
+                synchronizationMode:VZDiskSynchronizationModeFull
+                error:nil];
+
+    if (!attach) {
+        virReportError(VIR_ERR_INTERNAL_ERROR,
+                    _("failed to create block attachment for disk"));
+        return nil;
+    }
+
+    return attach;
+}
+
+
+static VZStorageDeviceAttachment *
+vfBuildDiskFileAttachment(virDomainDiskDef *disk)
+{
+    NSString *diskPath = [NSString stringWithUTF8String:disk->src->path];
+    NSURL *path_url = [NSURL fileURLWithPath:diskPath];
+
+    VZDiskImageStorageDeviceAttachment *attach =
+                    [[VZDiskImageStorageDeviceAttachment alloc]
+                      initWithURL:path_url
+                      readOnly:disk->src->readonly
+                      error:nil];
+
+    if (!attach) {
+        virReportError(VIR_ERR_INTERNAL_ERROR,
+                    _("failed to create file attachment for disk"));
+        return nil;
+    }
+
+    return attach;
+}
+
+
 static int vfConfigureDisks(virDomainDef *def,
-                            VZVirtualMachineConfiguration *configuration)
+                            VZVirtualMachineConfiguration *configuration,
+                            BOOL privileged)
 {
     size_t i = 0;
     NSMutableArray *storageDevices = [[NSMutableArray alloc] init];
@@ -353,25 +463,21 @@ static int vfConfigureDisks(virDomainDef *def,
 
         switch (disk->src->type) {
         case VIR_STORAGE_TYPE_FILE:
-        {
-            NSString *diskPath = [NSString stringWithUTF8String:disk->src->path];
-            NSURL *path_url = [NSURL fileURLWithPath:diskPath];
-            attach = [[VZDiskImageStorageDeviceAttachment alloc]
-                        initWithURL:path_url
-                        readOnly:NO
-                        error:nil];
-
-            if (!attach) {
-                virReportError(VIR_ERR_INTERNAL_ERROR,
-                            _("failed to create attachment for disk"));
+            if (!(attach = vfBuildDiskFileAttachment(disk)))
                 return -1;
-            }
+
             break;
-        }
-        case VIR_STORAGE_TYPE_NETWORK:
-            /* TODO: Implement NBD attachment */
-        case VIR_STORAGE_TYPE_NONE:
         case VIR_STORAGE_TYPE_BLOCK:
+            if (!(attach = vfBuildDiskBlockAttachment(disk, privileged)))
+                return -1;
+
+            break;
+        case VIR_STORAGE_TYPE_NETWORK:
+            if (!(attach = vfBuildDiskNBDAttachment(disk)))
+                return -1;
+
+            break;
+        case VIR_STORAGE_TYPE_NONE:
         case VIR_STORAGE_TYPE_DIR:
         case VIR_STORAGE_TYPE_VOLUME:
         case VIR_STORAGE_TYPE_NVME:
@@ -662,7 +768,7 @@ int vfStartMachine(virVFDriver *driver, virDomainObj *vm)
     if (vfConfigureSerial(def, configuration) < 0)
         return -1;
 
-    if (vfConfigureDisks(def, configuration) < 0)
+    if (vfConfigureDisks(def, configuration, driver.privileged) < 0)
         return -1;
 
     if (vfConfigureNetwork(def, configuration) < 0)
