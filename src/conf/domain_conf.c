@@ -515,6 +515,7 @@ VIR_ENUM_IMPL(virDomainFS,
               "ram",
               "bind",
               "volume",
+              "rosetta"
 );
 
 VIR_ENUM_IMPL(virDomainFSDriver,
@@ -9392,7 +9393,8 @@ virDomainFSDefParseXML(virDomainXMLOption *xmlopt,
     }
 
     if (source == NULL && def->type != VIR_DOMAIN_FS_TYPE_RAM
-        && def->type != VIR_DOMAIN_FS_TYPE_VOLUME && !sock) {
+        && def->type != VIR_DOMAIN_FS_TYPE_VOLUME
+        && def->type != VIR_DOMAIN_FS_TYPE_ROSETTA && !sock) {
         virReportError(VIR_ERR_NO_SOURCE,
                        target ? "%s" : NULL, target);
         goto error;
@@ -24445,6 +24447,9 @@ virDomainFSDefFormat(virBuffer *buf,
         virBufferEscapeString(buf, " pool='%s'", def->src->srcpool->pool);
         virBufferEscapeString(buf, " volume='%s'", def->src->srcpool->volume);
         virBufferAddLit(buf, "/>\n");
+        break;
+
+    case VIR_DOMAIN_FS_TYPE_ROSETTA:
         break;
 
     case VIR_DOMAIN_FS_TYPE_LAST:

@@ -102,12 +102,13 @@ static int vfConfigureFilesystems(virDomainDef *def,
         virDomainFSDef *fs = def->fss[i];
         VZVirtioFileSystemDeviceConfiguration *fsConfig;
         VZSharedDirectory *shareDir;
-        VZSingleDirectoryShare *singleShareDir;
+        VZDirectoryShare *dirShare;
 
         NSString *source, *tag;
         NSURL *source_url;
 
-        if (fs->type != VIR_DOMAIN_FS_TYPE_MOUNT) {
+        if (fs->type != VIR_DOMAIN_FS_TYPE_MOUNT &&
+            fs->type != VIR_DOMAIN_FS_TYPE_ROSETTA) {
             virReportError(VIR_ERR_CONFIG_UNSUPPORTED,
                            _("unsupported filesystem type '%1$s'"),
                            virDomainFSTypeToString(fs->type));
@@ -126,17 +127,29 @@ static int vfConfigureFilesystems(virDomainDef *def,
             return -1;
         }
 
-        source = [NSString stringWithUTF8String:fs->src->path];
-        source_url = [NSURL fileURLWithPath:source];
         tag = [NSString stringWithUTF8String:fs->dst];
 
-        shareDir = [[VZSharedDirectory alloc]
-                     initWithURL:source_url
-                     readOnly:fs->readonly ? YES: NO];
-        singleShareDir =  [[VZSingleDirectoryShare alloc] initWithDirectory:shareDir];
+        if (fs->type == VIR_DOMAIN_FS_TYPE_ROSETTA) {
+            NSError *error;
+            dirShare = [[VZLinuxRosettaDirectoryShare alloc] initWithError:&error];
+
+            if (error) {
+                virReportError(VIR_ERR_CONFIG_UNSUPPORTED,
+                               _("rosetta is not available on this system"));
+                return -1;
+            }
+        } else {
+            source = [NSString stringWithUTF8String:fs->src->path];
+            source_url = [NSURL fileURLWithPath:source];
+
+            shareDir = [[VZSharedDirectory alloc]
+                        initWithURL:source_url
+                        readOnly:fs->readonly ? YES: NO];
+            dirShare =  [[VZSingleDirectoryShare alloc] initWithDirectory:shareDir];
+        }
 
         fsConfig = [[VZVirtioFileSystemDeviceConfiguration alloc] initWithTag:tag];
-        fsConfig.share = singleShareDir;
+        fsConfig.share = dirShare;
 
         [directorySharingDevices addObject:fsConfig];
     }
