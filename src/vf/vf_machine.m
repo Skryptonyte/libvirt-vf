@@ -493,6 +493,21 @@ static int vfConfigureMemory(virDomainDef *def,
     uint64_t memsize = virDomainDefGetMemoryInitial(def) * 1024;
     configuration.memorySize = memsize;
 
+    if (def->memballoon) {
+        virDomainMemballoonDef *memballoon = def->memballoon;
+
+        if (memballoon->model != VIR_DOMAIN_MEMBALLOON_MODEL_VIRTIO) {
+            virReportError(VIR_ERR_CONFIG_UNSUPPORTED,
+                           _("unsupported memballoon model '%1$s'"),
+                            virDomainMemballoonModelTypeToString(memballoon->model));
+            return -1;
+        }
+
+        VZVirtioTraditionalMemoryBalloonDeviceConfiguration *balloonConfig =
+                            [[VZVirtioTraditionalMemoryBalloonDeviceConfiguration alloc] init];
+        configuration.memoryBalloonDevices = @[ balloonConfig ];
+    }
+
     return 0;
 }
 
