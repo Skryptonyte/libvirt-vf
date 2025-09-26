@@ -526,6 +526,17 @@ vfDomainCreateXML(virConnectPtr conn,
 }
 
 
+static int
+vfNodeGetInfo(virConnectPtr conn,
+              virNodeInfoPtr nodeinfo)
+{
+    if (virNodeGetInfoEnsureACL(conn) < 0)
+        return -1;
+
+    return virCapabilitiesGetNodeInfo(nodeinfo);
+}
+
+
 static char *vfConnectGetCapabilities(virConnectPtr conn G_GNUC_UNUSED)
 {
     g_autoptr(virCaps) caps = NULL;
@@ -656,6 +667,7 @@ static virHypervisorDriver vfHypervisorDriver = {
     .connectOpen = vfConnectOpen, /* 11.8.0 */
     .connectClose = vfConnectClose, /* 11.8.0 */
     .connectGetCapabilities = vfConnectGetCapabilities, /* 11.8.0 */
+    .nodeGetInfo = vfNodeGetInfo, /* 11.8.0 */
     .domainCreateXML = vfDomainCreateXML, /* 11.8.0 */
     .domainDefineXML = vfDomainDefineXML, /* 11.8.0 */
     .domainDefineXMLFlags = vfDomainDefineXMLFlags, /* 11.8.0 */
