@@ -41,6 +41,8 @@ typedef struct _virVFConf virVFConf;
 
 @interface virVFDriver: NSObject
 
+    @property BOOL privileged;
+
     @property virDomainXMLOption *xmlopt;
 
     /* Immutable pointer, self-locking APIs */

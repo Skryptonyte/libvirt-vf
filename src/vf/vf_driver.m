@@ -589,7 +589,7 @@ vfConnectClose(virConnectPtr conn)
 
 
 static virDrvStateInitResult
-vfStateInitialize(bool privileged G_GNUC_UNUSED,
+vfStateInitialize(bool privileged,
                   const char *root G_GNUC_UNUSED,
                   bool monolithic G_GNUC_UNUSED,
                   virStateInhibitCallback callback G_GNUC_UNUSED,
@@ -609,7 +609,7 @@ vfStateInitialize(bool privileged G_GNUC_UNUSED,
         return VIR_DRV_STATE_INIT_ERROR;
 
     driver.queue = dispatch_queue_create(NULL, DISPATCH_QUEUE_SERIAL);
-
+    driver.privileged = privileged;
     driver.vmid = 0;
 
     [driver initConfiguration];
