@@ -165,6 +165,7 @@ VIR_ENUM_IMPL(virDomainFeature,
               "viridian",
               "privnet",
               "hyperv",
+              "vf",
               "kvm",
               "pvspinlock",
               "capabilities",
@@ -216,6 +217,11 @@ VIR_ENUM_IMPL(virDomainHyperv,
               "avic",
               "emsr_bitmap",
               "xmm_input",
+);
+
+VIR_ENUM_IMPL(virDomainVF,
+              VIR_DOMAIN_VF_LAST,
+              "nested",
 );
 
 VIR_ENUM_IMPL(virDomainKVM,
@@ -17170,6 +17176,39 @@ virDomainFeaturesHyperVDefParse(virDomainDef *def,
 
 
 static int
+virDomainFeaturesVFDefParse(virDomainDef *def,
+                            xmlNodePtr node)
+{
+    node = xmlFirstElementChild(node);
+
+    while (node != NULL) {
+        int feature;
+        virTristateSwitch value;
+
+        feature = virDomainVFTypeFromString((const char *)node->name);
+        if (feature < 0) {
+            virReportError(VIR_ERR_CONFIG_UNSUPPORTED,
+                           _("unsupported Virtualization.Framework feature: %1$s"),
+                           node->name);
+            return -1;
+        }
+
+        if (virXMLPropTristateSwitch(node, "state", VIR_XML_PROP_REQUIRED,
+                                     &value) < 0)
+            return -1;
+
+        def->vf_features[feature] = value;
+
+        node = xmlNextElementSibling(node);
+    }
+
+    def->features[VIR_DOMAIN_FEATURE_VF] = VIR_TRISTATE_SWITCH_ON;
+
+    return 0;
+}
+
+
+static int
 virDomainFeaturesKVMDefParse(virDomainDef *def,
                              xmlNodePtr node)
 {
@@ -17397,6 +17436,11 @@ virDomainFeaturesDefParse(virDomainDef *def,
 
         case VIR_DOMAIN_FEATURE_HYPERV:
             if (virDomainFeaturesHyperVDefParse(def, nodes[i]) < 0)
+                return -1;
+            break;
+
+        case VIR_DOMAIN_FEATURE_VF:
+            if (virDomainFeaturesVFDefParse(def, nodes[i]) < 0)
                 return -1;
             break;
 
@@ -21482,6 +21526,7 @@ virDomainDefFeaturesCheckABIStability(virDomainDef *src,
         case VIR_DOMAIN_FEATURE_VIRIDIAN:
         case VIR_DOMAIN_FEATURE_PRIVNET:
         case VIR_DOMAIN_FEATURE_HYPERV:
+        case VIR_DOMAIN_FEATURE_VF:
         case VIR_DOMAIN_FEATURE_KVM:
         case VIR_DOMAIN_FEATURE_XEN:
         case VIR_DOMAIN_FEATURE_PVSPINLOCK:
@@ -28760,6 +28805,29 @@ virDomainDefFormatFeatures(virBuffer *buf,
             virBufferAddLit(&childBuf, "</hyperv>\n");
             break;
 
+        case VIR_DOMAIN_FEATURE_VF:
+            if (def->features[i] != VIR_TRISTATE_SWITCH_ON)
+                break;
+
+            virBufferAddLit(&childBuf, "<vf>\n");
+            virBufferAdjustIndent(&childBuf, 2);
+
+            for (j = 0; j < VIR_DOMAIN_VF_LAST; j++) {
+                switch ((virDomainVF) j) {
+                    case VIR_DOMAIN_VF_NESTED:
+                        if (def->vf_features[j] == VIR_TRISTATE_SWITCH_ON)
+                            virBufferAddLit(&childBuf, "<nested state='on'/>\n");
+
+                        break;
+
+                    case VIR_DOMAIN_VF_LAST:
+                        break;
+                }
+            }
+
+            virBufferAdjustIndent(&childBuf, -2);
+            virBufferAddLit(&childBuf, "</vf>\n");
+            break;
         case VIR_DOMAIN_FEATURE_KVM:
             if (def->features[i] != VIR_TRISTATE_SWITCH_ON)
                 break;

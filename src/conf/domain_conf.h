@@ -2217,6 +2217,7 @@ typedef enum {
     VIR_DOMAIN_FEATURE_VIRIDIAN,
     VIR_DOMAIN_FEATURE_PRIVNET,
     VIR_DOMAIN_FEATURE_HYPERV,
+    VIR_DOMAIN_FEATURE_VF,
     VIR_DOMAIN_FEATURE_KVM,
     VIR_DOMAIN_FEATURE_PVSPINLOCK,
     VIR_DOMAIN_FEATURE_CAPABILITIES,
@@ -2267,6 +2268,12 @@ typedef enum {
 
     VIR_DOMAIN_HYPERV_LAST
 } virDomainHyperv;
+
+typedef enum {
+    VIR_DOMAIN_VF_NESTED = 0,
+
+    VIR_DOMAIN_VF_LAST
+} virDomainVF;
 
 typedef enum {
     VIR_DOMAIN_KVM_HIDDEN = 0,
@@ -3198,6 +3205,7 @@ struct _virDomainDef {
     int features[VIR_DOMAIN_FEATURE_LAST];
     int caps_features[VIR_DOMAIN_PROCES_CAPS_FEATURE_LAST];
     int hyperv_features[VIR_DOMAIN_HYPERV_LAST];
+    int vf_features[VIR_DOMAIN_HYPERV_LAST];
     virDomainFeatureKVM *kvm_features;
     int msrs_features[VIR_DOMAIN_MSRS_LAST];
     int xen_features[VIR_DOMAIN_XEN_LAST];
@@ -4404,6 +4412,7 @@ VIR_ENUM_DECL(virDomainGraphicsSpiceStreamingMode);
 VIR_ENUM_DECL(virDomainMouseMode);
 VIR_ENUM_DECL(virDomainGraphicsVNCSharePolicy);
 VIR_ENUM_DECL(virDomainHyperv);
+VIR_ENUM_DECL(virDomainVF);
 VIR_ENUM_DECL(virDomainKVM);
 VIR_ENUM_DECL(virDomainXen);
 VIR_ENUM_DECL(virDomainXenPassthroughMode);

@@ -197,6 +197,13 @@ qemuValidateDomainDefFeatures(const virDomainDef *def,
             }
             break;
 
+        case VIR_DOMAIN_FEATURE_VF:
+            if (def->features[i] == VIR_TRISTATE_SWITCH_ON) {
+                virReportError(VIR_ERR_CONFIG_UNSUPPORTED,
+                               _("VF features are not supported on QEMU"));
+            }
+            break;
+
         case VIR_DOMAIN_FEATURE_PMU:
             if (def->features[i] == VIR_TRISTATE_SWITCH_OFF &&
                 ARCH_IS_PPC64(def->os.arch)) {
