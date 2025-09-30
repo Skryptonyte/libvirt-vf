@@ -698,11 +698,15 @@ static int vfConfigureBootloader(virDomainDef *def,
 }
 
 
-static int vfConfigurePlatform(virDomainDef *def G_GNUC_UNUSED,
+static int vfConfigurePlatform(virDomainDef *def,
                                VZVirtualMachineConfiguration *configuration)
 {
     VZGenericPlatformConfiguration *platform = [[VZGenericPlatformConfiguration alloc] init];
     platform.machineIdentifier = [[VZGenericMachineIdentifier alloc] init];
+
+    if (def->vf_features[VIR_DOMAIN_VF_NESTED] == VIR_TRISTATE_SWITCH_ON) {
+        platform.nestedVirtualizationEnabled = YES;
+    }
 
     configuration.platform = platform;
 
