@@ -399,6 +399,70 @@ static char *vfDomainGetXMLDesc(virDomainPtr dom,
 }
 
 
+static int vfDomainUndefineFlags(virDomainPtr dom,
+                                  unsigned int flags)
+{
+    virVFDriver *driver = (__bridge virVFDriver *) dom->conn->privateData;
+    virDomainObj *vm;
+    virVFConf *cfg = driver.cfg;
+    int ret = -1;
+    g_autofree char *nvramPath;
+
+    virCheckFlags(VIR_DOMAIN_UNDEFINE_NVRAM |
+                  VIR_DOMAIN_UNDEFINE_KEEP_NVRAM, -1);
+
+    if (!(vm = vfDomObjFromDomain(dom)))
+        goto cleanup;
+
+    if (virDomainUndefineFlagsEnsureACL(dom->conn, vm->def) < 0)
+        goto cleanup;
+
+    if (!vm->persistent) {
+        virReportError(VIR_ERR_OPERATION_INVALID,
+                       "%s", _("Cannot undefine transient domain"));
+        goto cleanup;
+    }
+
+    nvramPath = g_strdup_printf("%s/%s_VARS.fd", cfg->nvramDir, vm->def->name);
+
+    if (virFileExists(nvramPath)) {
+        if (flags & VIR_DOMAIN_UNDEFINE_NVRAM) {
+            if (unlink(nvramPath) < 0) {
+                virReportError(VIR_ERR_INTERNAL_ERROR, "%s",
+                                _("unable to delete nvram"));
+                goto cleanup;
+            }
+        } else if (!(flags & VIR_DOMAIN_UNDEFINE_KEEP_NVRAM)) {
+            virReportError(VIR_ERR_OPERATION_INVALID, "%s",
+                            _("cannot undefine domain with nvram"));
+            goto cleanup;
+        }
+    }
+
+    if (virDomainDeleteConfig(cfg->configDir,
+                              NULL,
+                              vm) < 0)
+        goto cleanup;
+
+    if (virDomainObjIsActive(vm))
+        vm->persistent = 0;
+    else
+        virDomainObjListRemove(driver.domains, vm);
+
+    ret = 0;
+
+ cleanup:
+    virDomainObjEndAPI(&vm);
+    return ret;
+}
+
+
+static int vfDomainUndefine(virDomainPtr dom)
+{
+    return vfDomainUndefineFlags(dom, 0);
+}
+
+
 static virDomainPtr
 vfDomainDefineXMLFlags(virConnectPtr conn,
                   const char *xml,
@@ -671,6 +735,8 @@ static virHypervisorDriver vfHypervisorDriver = {
     .domainCreateXML = vfDomainCreateXML, /* 11.8.0 */
     .domainDefineXML = vfDomainDefineXML, /* 11.8.0 */
     .domainDefineXMLFlags = vfDomainDefineXMLFlags, /* 11.8.0 */
+    .domainUndefine = vfDomainUndefine, /* 11.8.0 */
+    .domainUndefineFlags = vfDomainUndefineFlags, /* 11.8.0 */
     .domainCreate = vfDomainCreate, /* 11.8.0 */
     .domainCreateWithFiles = vfDomainCreateWithFiles, /* 11.8.0 */
     .domainGetXMLDesc = vfDomainGetXMLDesc, /* 11.8.0 */
